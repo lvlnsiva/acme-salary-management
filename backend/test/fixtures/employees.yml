@@ -7,6 +7,8 @@ one:
   email: john.doe@example.com
   job_title: Engineer
   employment_status: active
+  country: one
+  department: one
 
 two:
   employee_number: EMP002
@@ -15,3 +17,5 @@ two:
   email: jane.smith@example.com
   job_title: Manager
   employment_status: active
+  country: one
+  department: two

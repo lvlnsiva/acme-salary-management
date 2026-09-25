@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_09_25_050421) do
+ActiveRecord::Schema[7.2].define(version: 2026_09_25_052754) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -36,6 +36,10 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_25_050421) do
     t.string "employment_status"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "country_id", null: false
+    t.bigint "department_id", null: false
+    t.index ["country_id"], name: "index_employees_on_country_id"
+    t.index ["department_id"], name: "index_employees_on_department_id"
     t.index ["email"], name: "index_employees_on_email", unique: true
     t.index ["employee_number"], name: "index_employees_on_employee_number", unique: true
   end
@@ -52,5 +56,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_25_050421) do
     t.index ["employee_id"], name: "index_salaries_on_employee_id"
   end
 
+  add_foreign_key "employees", "countries"
+  add_foreign_key "employees", "departments"
   add_foreign_key "salaries", "employees"
 end

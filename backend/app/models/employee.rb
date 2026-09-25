@@ -1,6 +1,6 @@
 class Employee < ApplicationRecord
-  belongs_to :country, optional: true
-  belongs_to :department, optional: true
+  belongs_to :country
+  belongs_to :department
   has_many :salaries, dependent: :destroy
 
   validates :employee_number, presence: true, uniqueness: true
