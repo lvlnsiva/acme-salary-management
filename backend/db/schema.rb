@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_09_25_050215) do
+ActiveRecord::Schema[7.2].define(version: 2026_09_25_050421) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -36,6 +36,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_25_050215) do
     t.string "employment_status"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["email"], name: "index_employees_on_email", unique: true
+    t.index ["employee_number"], name: "index_employees_on_employee_number", unique: true
   end
 
   create_table "salaries", force: :cascade do |t|
@@ -46,6 +48,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_25_050215) do
     t.date "effective_to"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["effective_from"], name: "index_salaries_on_effective_from"
     t.index ["employee_id"], name: "index_salaries_on_employee_id"
   end
 

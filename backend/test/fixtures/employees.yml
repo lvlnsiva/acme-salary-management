@@ -1,17 +1,17 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
 one:
-  employee_number: MyString
-  first_name: MyString
-  last_name: MyString
-  email: MyString
-  job_title: MyString
-  employment_status: MyString
+  employee_number: EMP001
+  first_name: John
+  last_name: Doe
+  email: john.doe@example.com
+  job_title: Engineer
+  employment_status: active
 
 two:
-  employee_number: MyString
-  first_name: MyString
-  last_name: MyString
-  email: MyString
-  job_title: MyString
-  employment_status: MyString
+  employee_number: EMP002
+  first_name: Jane
+  last_name: Smith
+  email: jane.smith@example.com
+  job_title: Manager
+  employment_status: active
