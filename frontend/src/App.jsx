@@ -21,6 +21,17 @@ const departments = [
   { id: '7', name: 'Customer Support' },
 ]
 
+const emptyEmployeeForm = {
+  employee_number: '',
+  first_name: '',
+  last_name: '',
+  email: '',
+  country_id: '',
+  department_id: '',
+  job_title: '',
+  employment_status: 'active',
+}
+
 function App() {
   const [employees, setEmployees] = useState([])
   const [meta, setMeta] = useState({
@@ -33,6 +44,12 @@ function App() {
   const [insights, setInsights] = useState(null)
   const [selectedEmployee, setSelectedEmployee] = useState(null)
 
+  const [showEmployeeForm, setShowEmployeeForm] = useState(false)
+  const [editingEmployee, setEditingEmployee] = useState(null)
+  const [employeeForm, setEmployeeForm] = useState({
+    ...emptyEmployeeForm,
+  })
+
   const [search, setSearch] = useState('')
   const [country, setCountry] = useState('')
   const [department, setDepartment] = useState('')
@@ -42,6 +59,73 @@ function App() {
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [error, setError] = useState('')
 
+  async function fetchEmployees() {
+    setLoading(true)
+    setError('')
+
+    const params = new URLSearchParams({
+      page: String(page),
+      per_page: '20',
+    })
+
+    if (search.trim()) {
+      params.set('search', search.trim())
+    }
+
+    if (country) {
+      params.set('country', country)
+    }
+
+    if (department) {
+      params.set('department', department)
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/employees?${params.toString()}`
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to load employees')
+      }
+
+      const result = await response.json()
+
+      setEmployees(result.data || [])
+      setMeta(
+        result.meta || {
+          page: 1,
+          per_page: 20,
+          total_count: 0,
+          total_pages: 0,
+        }
+      )
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function fetchInsights() {
+    setInsightsLoading(true)
+
+    try {
+      const response = await fetch(`${API_URL}/insights`)
+
+      if (!response.ok) {
+        throw new Error('Failed to load insights')
+      }
+
+      const result = await response.json()
+      setInsights(result)
+    } catch {
+      setInsights(null)
+    } finally {
+      setInsightsLoading(false)
+    }
+  }
+
   useEffect(() => {
     const controller = new AbortController()
 
@@ -50,8 +134,8 @@ function App() {
       setError('')
 
       const params = new URLSearchParams({
-        page,
-        per_page: 20,
+        page: String(page),
+        per_page: '20',
       })
 
       if (search.trim()) {
@@ -104,26 +188,7 @@ function App() {
   }, [page, search, country, department])
 
   useEffect(() => {
-    async function loadInsights() {
-      setInsightsLoading(true)
-
-      try {
-        const response = await fetch(`${API_URL}/insights`)
-
-        if (!response.ok) {
-          throw new Error('Failed to load insights')
-        }
-
-        const result = await response.json()
-        setInsights(result)
-      } catch {
-        setInsights(null)
-      } finally {
-        setInsightsLoading(false)
-      }
-    }
-
-    loadInsights()
+    fetchInsights()
   }, [])
 
   function handleSearchChange(event) {
@@ -161,7 +226,9 @@ function App() {
   function getEmployeeName(employee) {
     return (
       employee.name ||
-      [employee.first_name, employee.last_name].filter(Boolean).join(' ') ||
+      [employee.first_name, employee.last_name]
+        .filter(Boolean)
+        .join(' ') ||
       '—'
     )
   }
@@ -179,6 +246,7 @@ function App() {
 
     return '—'
   }
+
   function getCountryName(employee) {
     if (employee.country?.name) {
       return employee.country.name
@@ -191,7 +259,7 @@ function App() {
     const countryId = String(employee.country_id || '')
 
     return (
-      countries.find((country) => country.id === countryId)?.name ||
+      countries.find((item) => item.id === countryId)?.name ||
       '—'
     )
   }
@@ -208,9 +276,8 @@ function App() {
     const departmentId = String(employee.department_id || '')
 
     return (
-      departments.find(
-        (department) => department.id === departmentId
-      )?.name || '—'
+      departments.find((item) => item.id === departmentId)?.name ||
+      '—'
     )
   }
 
@@ -256,6 +323,127 @@ function App() {
     ))
   }
 
+  async function openEmployeeDetails(employee) {
+    setError('')
+
+    try {
+      const response = await fetch(
+        `${API_URL}/employees/${employee.id}`
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to load employee details')
+      }
+
+      const data = await response.json()
+      setSelectedEmployee(data)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function handleEmployeeSubmit(event) {
+    event.preventDefault()
+    setError('')
+
+    try {
+      const isEditing = Boolean(editingEmployee)
+
+      const url = isEditing
+        ? `${API_URL}/employees/${editingEmployee.id}`
+        : `${API_URL}/employees`
+
+      const response = await fetch(url, {
+        method: isEditing ? 'PATCH' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employee: {
+            ...employeeForm,
+            country_id: Number(employeeForm.country_id),
+            department_id: Number(employeeForm.department_id),
+          },
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        const message = data.errors
+          ? Object.values(data.errors).flat().join(', ')
+          : 'Failed to save employee'
+
+        throw new Error(message)
+      }
+
+      setShowEmployeeForm(false)
+      setEditingEmployee(null)
+      setEmployeeForm({ ...emptyEmployeeForm })
+
+      await fetchEmployees()
+      await fetchInsights()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  function openAddEmployeeForm() {
+    setSelectedEmployee(null)
+    setEditingEmployee(null)
+    setEmployeeForm({ ...emptyEmployeeForm })
+    setShowEmployeeForm(true)
+  }
+
+  function openEditEmployeeForm(employee) {
+    setSelectedEmployee(null)
+    setEditingEmployee(employee)
+
+    setEmployeeForm({
+      employee_number: employee.employee_number || '',
+      first_name: employee.first_name || '',
+      last_name: employee.last_name || '',
+      email: employee.email || '',
+      country_id: String(employee.country_id || ''),
+      department_id: String(employee.department_id || ''),
+      job_title: employee.job_title || '',
+      employment_status:
+        employee.employment_status || 'active',
+    })
+
+    setShowEmployeeForm(true)
+  }
+
+  async function handleDeleteEmployee(employee) {
+    const confirmed = window.confirm(
+      `Delete ${getEmployeeName(employee)}? This cannot be undone.`
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setError('')
+
+    try {
+      const response = await fetch(
+        `${API_URL}/employees/${employee.id}`,
+        {
+          method: 'DELETE',
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to delete employee')
+      }
+
+      await fetchEmployees()
+      await fetchInsights()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   return (
     <div className="app">
       <header className="header">
@@ -281,12 +469,11 @@ function App() {
       <main className="container">
         <section className="welcome">
           <div>
-            <p className="eyebrow">EMPLOYEE MANAGEMENT</p>
-
             <h2>Employee Overview</h2>
 
-            <p className="subtitle">
-              Manage employee information and compensation from one place.
+            <p>
+              Manage employee information, compensation, and
+              salary history.
             </p>
           </div>
         </section>
@@ -327,11 +514,22 @@ function App() {
 
         <section className="employee-section">
           <div className="section-header">
-            <h2>Employees</h2>
+            <div>
+              <h2>Employees</h2>
 
-            <p>
-              Search and filter employees to view their compensation details.
-            </p>
+              <p>
+                Search and filter employees to view their compensation
+                details.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="primary-button"
+              onClick={openAddEmployeeForm}
+            >
+              Add Employee
+            </button>
           </div>
 
           <div className="filters">
@@ -353,7 +551,7 @@ function App() {
               <option value="">All Countries</option>
 
               {countries.map((item) => (
-                <option key={item.id} value={item.name}>
+                <option key={item.id} value={item.id}>
                   {item.name}
                 </option>
               ))}
@@ -367,7 +565,7 @@ function App() {
               <option value="">All Departments</option>
 
               {departments.map((item) => (
-                <option key={item.id} value={item.name}>
+                <option key={item.id} value={item.id}>
                   {item.name}
                 </option>
               ))}
@@ -395,19 +593,20 @@ function App() {
                   <th>Job Title</th>
                   <th>Salary</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
 
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="7" className="loading-row">
+                    <td colSpan="8" className="loading-row">
                       Loading employees...
                     </td>
                   </tr>
                 ) : employees.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="empty-row">
+                    <td colSpan="8" className="empty-row">
                       No employees found.
                     </td>
                   </tr>
@@ -416,7 +615,7 @@ function App() {
                     <tr
                       key={employee.id}
                       className="employee-row"
-                      onClick={() => setSelectedEmployee(employee)}
+                      onClick={() => openEmployeeDetails(employee)}
                     >
                       <td className="employee-number">
                         {employee.employee_number || '—'}
@@ -441,6 +640,30 @@ function App() {
                           {employee.employment_status || 'Active'}
                         </span>
                       </td>
+
+                      <td className="employee-actions-cell">
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            openEditEmployeeForm(employee)
+                          }}
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          className="danger-button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleDeleteEmployee(employee)
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -451,7 +674,8 @@ function App() {
           <div className="pagination">
             <span className="pagination-info">
               Showing {employees.length} of{' '}
-              {Number(meta.total_count || 0).toLocaleString()} employees
+              {Number(meta.total_count || 0).toLocaleString()}{' '}
+              employees
             </span>
 
             <div className="pagination-controls">
@@ -459,7 +683,9 @@ function App() {
                 type="button"
                 className="pagination-button"
                 disabled={page <= 1}
-                onClick={() => setPage((current) => current - 1)}
+                onClick={() =>
+                  setPage((current) => current - 1)
+                }
               >
                 Previous
               </button>
@@ -474,7 +700,9 @@ function App() {
                 disabled={
                   !meta.total_pages || page >= meta.total_pages
                 }
-                onClick={() => setPage((current) => current + 1)}
+                onClick={() =>
+                  setPage((current) => current + 1)
+                }
               >
                 Next
               </button>
@@ -628,7 +856,9 @@ function App() {
                 </div>
 
                 <div className="detail-item">
-                  <span className="detail-label">Current Salary</span>
+                  <span className="detail-label">
+                    Current Salary
+                  </span>
 
                   <span className="detail-value">
                     {getEmployeeSalary(selectedEmployee)}
@@ -636,13 +866,13 @@ function App() {
                 </div>
               </div>
 
-              {Array.isArray(selectedEmployee.salary_history) &&
-                selectedEmployee.salary_history.length > 0 && (
+              {Array.isArray(selectedEmployee.salaries) &&
+                selectedEmployee.salaries.length > 0 && (
                   <div className="salary-history">
                     <h3>Salary History</h3>
 
                     <div className="salary-history-list">
-                      {selectedEmployee.salary_history.map(
+                      {selectedEmployee.salaries.map(
                         (salary, index) => (
                           <div
                             className="salary-history-row"
@@ -664,6 +894,234 @@ function App() {
                     </div>
                   </div>
                 )}
+
+              <div className="employee-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setSelectedEmployee(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEmployeeForm && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowEmployeeForm(false)}
+        >
+          <div
+            className="modal employee-form-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div>
+                <h2>
+                  {editingEmployee
+                    ? 'Edit Employee'
+                    : 'Add Employee'}
+                </h2>
+
+                <p>
+                  {editingEmployee
+                    ? 'Update employee information'
+                    : 'Enter employee information'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowEmployeeForm(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <form onSubmit={handleEmployeeSubmit}>
+                <div className="form-grid">
+                  <label>
+                    Employee Number
+
+                    <input
+                      type="text"
+                      value={employeeForm.employee_number}
+                      onChange={(event) =>
+                        setEmployeeForm({
+                          ...employeeForm,
+                          employee_number: event.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    First Name
+
+                    <input
+                      type="text"
+                      value={employeeForm.first_name}
+                      onChange={(event) =>
+                        setEmployeeForm({
+                          ...employeeForm,
+                          first_name: event.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    Last Name
+
+                    <input
+                      type="text"
+                      value={employeeForm.last_name}
+                      onChange={(event) =>
+                        setEmployeeForm({
+                          ...employeeForm,
+                          last_name: event.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    Email
+
+                    <input
+                      type="email"
+                      value={employeeForm.email}
+                      onChange={(event) =>
+                        setEmployeeForm({
+                          ...employeeForm,
+                          email: event.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    Country
+
+                    <select
+                      value={employeeForm.country_id}
+                      onChange={(event) =>
+                        setEmployeeForm({
+                          ...employeeForm,
+                          country_id: event.target.value,
+                        })
+                      }
+                      required
+                    >
+                      <option value="">
+                        Select country
+                      </option>
+
+                      {countries.map((item) => (
+                        <option
+                          key={item.id}
+                          value={item.id}
+                        >
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Department
+
+                    <select
+                      value={employeeForm.department_id}
+                      onChange={(event) =>
+                        setEmployeeForm({
+                          ...employeeForm,
+                          department_id: event.target.value,
+                        })
+                      }
+                      required
+                    >
+                      <option value="">
+                        Select department
+                      </option>
+
+                      {departments.map((item) => (
+                        <option
+                          key={item.id}
+                          value={item.id}
+                        >
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Job Title
+
+                    <input
+                      type="text"
+                      value={employeeForm.job_title}
+                      onChange={(event) =>
+                        setEmployeeForm({
+                          ...employeeForm,
+                          job_title: event.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    Employment Status
+
+                    <select
+                      value={employeeForm.employment_status}
+                      onChange={(event) =>
+                        setEmployeeForm({
+                          ...employeeForm,
+                          employment_status:
+                            event.target.value,
+                        })
+                      }
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="employee-actions">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() =>
+                      setShowEmployeeForm(false)
+                    }
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="primary-button"
+                  >
+                    {editingEmployee
+                      ? 'Save Changes'
+                      : 'Add Employee'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
