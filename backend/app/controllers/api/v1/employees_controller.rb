@@ -18,12 +18,19 @@ module Api
         total_count = employees.count
 
         employees = employees
+          .includes(:country, :department, :current_salary)
           .order(:id)
           .limit(per_page)
           .offset((page - 1) * per_page)
 
         render json: {
-          data: employees,
+          data: employees.as_json(
+            include: {
+              country: { only: [:id, :name] },
+              department: { only: [:id, :name] },
+              current_salary: { only: [:amount, :currency] }
+            }
+          ),
           meta: {
             page: page,
             per_page: per_page,
