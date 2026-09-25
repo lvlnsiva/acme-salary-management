@@ -41,8 +41,20 @@ module Api
       end
 
       def show
-        employee = Employee.find(params[:id])
-        render json: employee
+        employee = Employee
+          .includes(:country, :department, :salaries, :current_salary)
+          .find(params[:id])
+
+        render json: employee.as_json(
+          include: {
+            country: { only: [:id, :name] },
+            department: { only: [:id, :name] },
+            current_salary: { only: [:amount, :currency] },
+            salaries: {
+              only: [:id, :amount, :currency, :effective_from, :effective_to]
+            }
+          }
+        )
       end
 
       def create
