@@ -95,6 +95,8 @@ GEM
     erb (4.0.4.1)
       cgi (>= 0.3.3)
     erubi (1.13.1)
+    faker (3.6.1)
+      i18n (>= 1.8.11, < 2)
     globalid (1.4.0)
       activesupport (>= 6.1)
     i18n (1.15.2)
@@ -262,6 +264,7 @@ DEPENDENCIES
   bootsnap
   brakeman
   debug
+  faker
   pg (~> 1.1)
   puma (>= 5.0)
   rails (~> 7.2.3)
